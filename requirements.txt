@@ -1,0 +1,3 @@
+git+https://github.com/Magicked/configattr.git
+git+https://github.com/Magicked/critsapi.git
+requests
