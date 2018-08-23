@@ -8,6 +8,11 @@ import re
 
 from configparser import ConfigParser
 
+PARENT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+if PARENT_DIR not in sys.path:
+    sys.path.insert(0, PARENT_DIR)
+
+# Remove any proxy environment variables.
 os.environ['http_proxy'] = ''
 os.environ['https_proxy'] = ''
 
@@ -114,40 +119,27 @@ argparser.add_argument('CSV', action='store', help='The CSV file containing the 
 argparser.add_argument('--dev', dest='dev', action='store_true', default=False)
 args = argparser.parse_args()
 
-HOME = os.path.expanduser("~")
-if not os.path.exists(os.path.join(HOME, '.crits_api')):
-    print('''Please create a file with the following contents:
-        [crits]
-        user = nhausrath
-
-        [keys]
-        prod_api_key = keyhere
-        dev_api_key = keyhere
-    ''')
-    raise SystemExit('~/.crits_api was not found or was not accessible.')
-
 config = ConfigParser()
-config.read(os.path.join(HOME, '.crits_api'))
+config.read(os.path.join(PARENT_DIR, 'etc', 'local', 'config.ini'))
 
-if config.has_option("keys", "prod"):
-    crits_api_prod = config.get("keys", "prod")
-if config.has_option("keys", "dev"):
-    crits_api_dev = config.get("keys", "dev")
-if config.has_option("crits", "user"):
-    crits_username = config.get("crits", "user")
+crits_url_prod = config.get('crits', 'prod_url')
+crits_api_prod = config.get('crits', 'prod_key')
+crits_url_dev = config.get('crits', 'dev_url')
+crits_api_dev = config.get('crits', 'dev_key')
+crits_username = config.get('crits', 'user')
 
 if args.dev:
-    url = 'https://crits2.local/api/v1'
+    url = crits_url_dev
     api_key = crits_api_dev
     if len(api_key) != 40:
-        print("Dev API key in ~/.crits_api is the wrong length! Must be 40\
-        characters.")
+        print('Dev API key is the wrong length! Must be 40 characters.')
+        sys.exit(1)
 else:
-    url = 'https://crits.local/api/v1'
+    url = crits_url_prod
     api_key = crits_api_prod
     if len(api_key) != 40:
-        print("Prod API key in ~/.crits_api is the wrong length! Must be 40\
-        characters.")
+        print('Prod API key is the wrong length! Must be 40 characters.')
+        sys.exit(1)
 
 analyst = crits_username
 

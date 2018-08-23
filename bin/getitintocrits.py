@@ -1,4 +1,4 @@
-#!/opt/intel/env/bin/python
+#!/usr/bin/env python3
 import requests
 import argparse
 import os, sys
@@ -12,7 +12,6 @@ import logging.config
 import hashlib
 
 from configparser import ConfigParser
-from lib.constants import IOC_HOME
 
 try:
     from requests.packages.urllib3.exceptions import InsecureRequestWarning, SNIMissingWarning, InsecurePlatformWarning
@@ -23,53 +22,23 @@ try:
 except:
     pass
 
-logging.config.fileConfig('/opt/intel/etc/logging.ini')
+PARENT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+if PARENT_DIR not in sys.path:
+    sys.path.insert(0, PARENT_DIR)
+
+logging.config.fileConfig(os.path.join(PARENT_DIR, 'etc', 'local', 'logging.ini'))
 log = logging.getLogger()
 
-# Our list of valid sources
-sources = [ 'DHS', 'FBI', 'FightClub', 'Integral', 'OSINT',
-           'PassiveTotal', 'VirusTotal' ]
+config = ConfigParser()
+config.read(os.path.join(PARENT_DIR, 'etc', 'local', 'config.ini'))
 
-# These are source shortcuts you may use
-source_shortcut_mapping = {
-    'def' : 'Defense',
-    'dhs' : 'DHS',
-    'fbi' : 'FBI',
-    'fight' : 'FightClub',
-    'fightclub' : 'FightClub',
-    'integral' : 'Integral',
-    'os' : 'OSINT',
-    'osint' : 'OSINT',
-    'pt' : 'PassiveTotal',
-    'vt' : 'VirusTotal',
-}
+# Read the settings from the config file.
+sources = list(set(config.get('getitintocrits', 'sources').split(',')))
+available_event_types = list(set(config.get('getitintocrits', 'available_event_types').split(',')))
+valid_tlos = list(set(config.get('getitintocrits', 'valid_tlos').split(',')))
+ignore_list = list(set(config.get('getitintocrits', 'ignore_list').split(',')))
 
-available_event_types = [
-    "Application Compromise",
-    "Denial of Service",
-    "Distributed Denial of Service",
-    "Exploitation",
-    "Intel Sharing",
-    "Malicious Code",
-    "Phishing",
-    "Privileged Account Compromise",
-    "Scanning",
-    "Sensor Alert",
-    "Social Engineering",
-    "Sniffing",
-    "Spam",
-    "Strategic Web Compromise",
-    "Unauthorized Information Access",
-    "Unknown",
-    "Website Defacement",
-]
-
-valid_tlos = [ 'Sample', 'Email', 'Backdoor']
-
-# This is a list of files to ignore when recursing through directories
-ignore_list = [ 'raw.txt', 'indicators.csv', 'backdoor.txt', '.relationships' ]
-
-# Delete those dumb lil proxies
+# Remove any proxy environment variables.
 os.environ['http_proxy'] = ''
 os.environ['https_proxy'] = ''
 
@@ -232,7 +201,7 @@ def create_event(args, tags='', campaign='', confidence=''):
 
 def submit_indicators_csv(source, reference, csvfile):
     # Load regexes so we can determine when we come across a domain or IP.
-    patterns = load_patterns(os.path.join(IOC_HOME, 'patterns.ini'))
+    patterns = load_patterns(os.path.join(PARENT_DIR, 'etc', 'local', 'patterns.ini'))
     return_data = { 'indicators' : [], 'domains' : [], 'ips' : [] }
 
     fin = open(csvfile, 'r')
@@ -596,7 +565,7 @@ def get_http_request(url):
         'api_key' : api_key,
         'username' : analyst,
     }
-    r = requests.get(url, params, verify=verify)
+    r = requests.get(url, params=params, verify=verify)
     if r.status_code == 200:
         return json.loads(r.text)
     elif r.status_code == 401:
@@ -944,51 +913,33 @@ argparser.add_argument('--bucket-list', dest='event_bucket_list', action='store'
 args = argparser.parse_args()
 
 pprint = pprint.PrettyPrinter(indent=2)
-HOME = os.path.expanduser("~")
-if not os.path.exists(os.path.join(HOME, '.crits_api')):
-    print('''Please create ~/.crits_api with the following contents:
-        [crits]
-        user = nhausrath
 
-        [keys]
-        prod = keyhere
-        dev = keyhere
-    ''')
-    raise SystemExit('~/.crits_api was not found or was not accessible.')
-
-config = ConfigParser()
-config.read(os.path.join(HOME, '.crits_api'))
-
-if config.has_option("keys", "prod"):
-    crits_api_prod = config.get("keys", "prod")
-if config.has_option("keys", "dev"):
-    crits_api_dev = config.get("keys", "dev")
-if config.has_option("crits", "user"):
-    crits_username = config.get("crits", "user")
+crits_url_prod = config.get('crits', 'prod_url')
+crits_api_prod = config.get('crits', 'prod_key')
+crits_url_dev = config.get('crits', 'dev_url')
+crits_api_dev = config.get('crits', 'dev_key')
+crits_username = config.get('crits', 'user')
 
 if args.dev:
-    url = 'https://crits2.local/api/v1'
+    url = crits_url_dev
     api_key = crits_api_dev
     if len(api_key) != 40:
-        print("Dev API key in ~/.crits_api is the wrong length! Must be 40\
-        characters.")
+        print('Dev API key is the wrong length! Must be 40 characters.')
+        sys.exit(1)
 else:
-    url = 'https://crits.local/api/v1'
+    url = crits_url_prod 
     api_key = crits_api_prod
     if len(api_key) != 40:
-        print("Prod API key in ~/.crits_api is the wrong length! Must be 40\
-        characters.")
+        print('Prod API key is the wrong length! Must be 40 characters.')
+        sys.exit(1)
 
 analyst = crits_username
 
 # Check if our source exists or if it is in the shortcut mapping
-if args.source not in sources and args.source not in source_shortcut_mapping.keys():
-    print("{0} is not a valid source!".format(args.source))
-    print("Valid types are {0}".format("\n".join(sources)))
+if args.source not in sources:
+    print('{0} is not a valid source!'.format(args.source))
+    print('Valid types are:\n{0}'.format('\n'.join(sorted(sources))))
     sys.exit(1)
-
-if args.source in source_shortcut_mapping.keys():
-    args.source = source_shortcut_mapping[args.source]
 
 relationship_data = {}
 # We start the recursion with an event
@@ -997,9 +948,9 @@ relationship_data = process_directory('.', 'Event', '', '', '')
 relationship_out = None
 if not args.no_write:
     relationships_name = _get_unused_relationship_name()
-    relationship_out = open(relationships_name, "w")
+    relationship_out = open(relationships_name, 'w')
 
-# Write all this shit
+# Write everything
 write_header(relationship_out)
 # Make relationships with all the TLOs and the event
 print(relationship_data)
