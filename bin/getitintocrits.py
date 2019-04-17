@@ -26,11 +26,20 @@ PARENT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
 
-logging.config.fileConfig(os.path.join(PARENT_DIR, 'etc', 'local', 'logging.ini'))
+if os.path.exists(os.path.join('/etc', 'getitintocrits')):
+    LOGGING_CONFIG_PATH = os.path.join('/etc', 'getitintocrits', 'logging.ini')
+    CONFIG_PATH = os.path.join('/etc', 'getitintocrits', 'config.ini')
+    PATTERNS_CONFIG_PATH = os.path.join('/etc', 'getitintocrits', 'patterns.ini')
+else:
+    LOGGING_CONFIG_PATH = os.path.join(PARENT_DIR, 'etc', 'local', 'logging.ini')
+    CONFIG_PATH = os.path.join(PARENT_DIR, 'etc', 'local', 'config.ini')
+    PATTERNS_CONFIG_PATH = os.path.join(PARENT_DIR, 'etc', 'local', 'patterns.ini')
+
+logging.config.fileConfig(LOGGING_CONFIG_PATH)
 log = logging.getLogger()
 
 config = ConfigParser()
-config.read(os.path.join(PARENT_DIR, 'etc', 'local', 'config.ini'))
+config.read(CONFIG_PATH)
 
 # Read the settings from the config file.
 sources = list(set(config.get('getitintocrits', 'sources').split(',')))
@@ -201,7 +210,7 @@ def create_event(args, tags='', campaign='', confidence=''):
 
 def submit_indicators_csv(source, reference, csvfile):
     # Load regexes so we can determine when we come across a domain or IP.
-    patterns = load_patterns(os.path.join(PARENT_DIR, 'etc', 'local', 'patterns.ini'))
+    patterns = load_patterns(PATTERNS_CONFIG_PATH)
     return_data = { 'indicators' : [], 'domains' : [], 'ips' : [] }
 
     fin = open(csvfile, 'r')
