@@ -35,7 +35,8 @@ else:
     CONFIG_PATH = os.path.join(PARENT_DIR, 'etc', 'local', 'config.ini')
     PATTERNS_CONFIG_PATH = os.path.join(PARENT_DIR, 'etc', 'local', 'patterns.ini')
 
-logging.config.fileConfig(LOGGING_CONFIG_PATH)
+# Set up logging
+logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s', level=logging.INFO)
 log = logging.getLogger()
 
 config = ConfigParser()
