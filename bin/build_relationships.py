@@ -1,4 +1,4 @@
-#!/opt/intel/env/bin/python
+#!/usr/bin/env python3
 import requests
 import argparse
 import os, sys
@@ -11,6 +11,11 @@ from configparser import ConfigParser
 PARENT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
+
+if os.path.exists(os.path.join('/etc', 'getitintocrits')):
+    CONFIG_PATH = os.path.join('/etc', 'getitintocrits', 'config.ini')
+else:
+    CONFIG_PATH = os.path.join(PARENT_DIR, 'etc', 'local', 'config.ini')
 
 # Remove any proxy environment variables.
 os.environ['http_proxy'] = ''
@@ -120,7 +125,7 @@ argparser.add_argument('--dev', dest='dev', action='store_true', default=False)
 args = argparser.parse_args()
 
 config = ConfigParser()
-config.read(os.path.join(PARENT_DIR, 'etc', 'local', 'config.ini'))
+config.read(CONFIG_PATH)
 
 crits_url_prod = config.get('crits', 'prod_url')
 crits_api_prod = config.get('crits', 'prod_key')
